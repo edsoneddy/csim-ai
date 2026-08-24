@@ -1,0 +1,16 @@
+# Fase 0 data audit + split config. Keep in sync with
+# training/data/audit.py and training/data/make_splits.py.
+seed: 42
+
+split_ratios:
+  train: 0.70
+  dev: 0.15
+  test: 0.15
+
+# Lower bound of each submissions-per-problem bucket used to stratify the
+# split, so dev/test aren't dominated by thin problems.
+submission_count_buckets: [1, 2, 5, 10, 30, 100]
+
+# Local dataset root. Machine-specific: set via --dataset-dir or the
+# CSIM_AI_DATASET_DIR env var instead of committing a real path here.
+dataset_dir: null

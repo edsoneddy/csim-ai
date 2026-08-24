@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "csim-ai"
+version = "0.0.1"
+description = "Neural-augmented Python code plagiarism detection for programming judges."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Edsone Eddy", email = "crew0eddy@gmail.com" }]
+# Base install stays free of heavy deps (no torch). Real runtime deps
+# (onnxruntime, numpy, tokenizers) land here once src/csim_ai has an
+# inference path to run (Fase 5).
+dependencies = []
+
+[project.optional-dependencies]
+# torch = [...]        # TODO(fase 5): training/serving with torch backend
+# ast = ["csim"]        # TODO(fase 5): optional TED signal via the csim package
+train = ["pyyaml>=6.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/csim_ai"]

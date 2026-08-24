@@ -1,0 +1,29 @@
+{
+  "n_problems": 299,
+  "n_submissions": 7879,
+  "submissions_per_problem": {
+    "min": 1,
+    "p25": 3,
+    "median": 6,
+    "mean": 26.35,
+    "p75": 40,
+    "max": 296
+  },
+  "lines_per_submission": {
+    "min": 1,
+    "p25": 13,
+    "median": 19,
+    "mean": 22.68,
+    "p75": 28,
+    "p95": 52,
+    "max": 256
+  },
+  "problems_with_lt2_submissions": 13,
+  "exact_duplicates": {
+    "n_extra_copies": 1764,
+    "n_duplicate_groups": 884,
+    "problems_with_duplicates": 220,
+    "pct_of_submissions": 22.39
+  },
+  "parse_failures": 0
+}
