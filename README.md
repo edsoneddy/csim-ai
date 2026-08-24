@@ -157,3 +157,16 @@ apples in the other direction. `java_24` grammar was picked over `java_20`
 without a rigorous comparison (single-pair spot check: 0.65 vs. 0.50 on
 one pair) -- worth revisiting if csim's Java path ever matters, though it
 doesn't for the Python-only product.
+
+**No rigorous Python-native plagiarism benchmark exists (checked, don't
+re-search this later).** Both academic benchmarks in this space are Java:
+ConPlag (above) and IR-Plag / Karnalim's
+[sourcecodeplagiarismdataset](https://github.com/oscarkarnalim/sourcecodeplagiarismdataset)
+(467 files, 7 tasks, Apache-2.0 -- also Java, confirmed). The one Python
+candidate found, a Kaggle set ("Student Code Similarity & Plagiarism
+Labels"), is described by its own listing as manually curated to
+*simulate* student submissions and cheating -- i.e. likely synthetic, so
+it wouldn't add independent signal beyond what our own L1-L6 generator
+(Fase 1) already produces. Decision: skip it, don't chase further Python
+benchmarks for now. This matches the "product gap" already noted in
+section 3 of the project brief -- it turns out to be a benchmark gap too.
