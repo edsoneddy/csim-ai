@@ -96,7 +96,7 @@ def main() -> None:
     with pairs_path.open("w", newline="", encoding="utf-8") as pf, pseudo_pos_path.open(
         "w", encoding="utf-8"
     ) as ppf:
-        writer = csv.writer(pf)
+        writer = csv.writer(pf, lineterminator="\n")
         writer.writerow(["problem_id", "split", "submission_a", "submission_b", "csim_score", "is_dup_pair"])
 
         for problem_id, rows in sorted(by_problem.items()):

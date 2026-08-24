@@ -1,5 +1,4 @@
 .venv/
-training/eval/external/conplag/
 __pycache__/
 *.pyc
 .pytest_cache/
