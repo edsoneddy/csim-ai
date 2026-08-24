@@ -18,7 +18,7 @@ dependencies = []
 [project.optional-dependencies]
 # torch = [...]        # TODO(fase 5): training/serving with torch backend
 ast = ["csim>=3.3.0"]   # optional TED signal via the csim package (Etapa B feature)
-train = ["pyyaml>=6.0", "csim>=3.3.0"]
+train = ["pyyaml>=6.0", "csim>=3.3.0", "libcst>=1.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/csim_ai"]
