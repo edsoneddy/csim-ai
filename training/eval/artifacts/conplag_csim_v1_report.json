@@ -1,0 +1,23 @@
+{
+  "dataset": "ConPlag",
+  "dataset_version": "raw",
+  "method": "csim (TED/APTED)",
+  "lang_grammar": "java_24",
+  "n_pairs_scored": 911,
+  "n_parse_failures": 0,
+  "threshold_tuning": {
+    "train_n": 230,
+    "tuned_threshold": 0.12,
+    "beta": 1.5
+  },
+  "test_set": {
+    "n": 681,
+    "n_positive": 186,
+    "precision": 0.2699,
+    "recall": 0.9677,
+    "f1.5": 0.5389,
+    "auroc": 0.6511,
+    "auprc": 0.5619,
+    "fpr_at_recall95": 0.9515
+  }
+}

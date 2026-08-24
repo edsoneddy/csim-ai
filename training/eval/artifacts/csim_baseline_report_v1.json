@@ -1,0 +1,23 @@
+{
+  "ted_algorithm": "apted",
+  "pseudo_positive_threshold": 0.95,
+  "n_preprocess_failures": 0,
+  "problems_with_preprocess_failures": 0,
+  "duplicate_pairs": {
+    "n": 6062,
+    "mean_score": 1.0,
+    "p05": 1.0,
+    "median": 1.0
+  },
+  "non_duplicate_pairs": {
+    "n": 301729,
+    "mean_score": 0.5115,
+    "median": 0.5,
+    "p95": 0.91,
+    "p99": 1.0
+  },
+  "pseudo_positive_candidates": {
+    "n": 13965,
+    "pct_of_non_duplicate_pairs": 4.6283
+  }
+}
