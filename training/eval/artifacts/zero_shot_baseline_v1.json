@@ -1,0 +1,134 @@
+[
+  {
+    "model": "unixcoder",
+    "level": "L1",
+    "n_positive": 1821,
+    "n_negative": 30452,
+    "auroc": 0.9891,
+    "auprc": 0.941,
+    "fpr_at_recall95": 0.0479,
+    "mean_positive_score": 0.982,
+    "mean_negative_score": 0.6392
+  },
+  {
+    "model": "unixcoder",
+    "level": "L2",
+    "n_positive": 3080,
+    "n_negative": 30452,
+    "auroc": 0.8001,
+    "auprc": 0.4152,
+    "fpr_at_recall95": 0.7104,
+    "mean_positive_score": 0.8344,
+    "mean_negative_score": 0.6392
+  },
+  {
+    "model": "unixcoder",
+    "level": "L3",
+    "n_positive": 416,
+    "n_negative": 30452,
+    "auroc": 0.9999,
+    "auprc": 0.9944,
+    "fpr_at_recall95": 0.0002,
+    "mean_positive_score": 0.9985,
+    "mean_negative_score": 0.6392
+  },
+  {
+    "model": "unixcoder",
+    "level": "L4",
+    "n_positive": 1849,
+    "n_negative": 30452,
+    "auroc": 0.9794,
+    "auprc": 0.8365,
+    "fpr_at_recall95": 0.1331,
+    "mean_positive_score": 0.9598,
+    "mean_negative_score": 0.6392
+  },
+  {
+    "model": "unixcoder",
+    "level": "L5",
+    "n_positive": 61,
+    "n_negative": 30452,
+    "auroc": 0.9884,
+    "auprc": 0.4305,
+    "fpr_at_recall95": 0.0192,
+    "mean_positive_score": 0.9723,
+    "mean_negative_score": 0.6392
+  },
+  {
+    "model": "unixcoder",
+    "level": "L6",
+    "n_positive": 53,
+    "n_negative": 30452,
+    "auroc": 0.6084,
+    "auprc": 0.0405,
+    "fpr_at_recall95": 0.8431,
+    "mean_positive_score": 0.7239,
+    "mean_negative_score": 0.6392
+  },
+  {
+    "model": "coderank",
+    "level": "L1",
+    "n_positive": 1821,
+    "n_negative": 30452,
+    "auroc": 0.992,
+    "auprc": 0.9455,
+    "fpr_at_recall95": 0.048,
+    "mean_positive_score": 0.9864,
+    "mean_negative_score": 0.6165
+  },
+  {
+    "model": "coderank",
+    "level": "L2",
+    "n_positive": 3080,
+    "n_negative": 30452,
+    "auroc": 0.7755,
+    "auprc": 0.3369,
+    "fpr_at_recall95": 0.7632,
+    "mean_positive_score": 0.8003,
+    "mean_negative_score": 0.6165
+  },
+  {
+    "model": "coderank",
+    "level": "L3",
+    "n_positive": 416,
+    "n_negative": 30452,
+    "auroc": 0.9999,
+    "auprc": 0.9907,
+    "fpr_at_recall95": 0.0005,
+    "mean_positive_score": 0.9987,
+    "mean_negative_score": 0.6165
+  },
+  {
+    "model": "coderank",
+    "level": "L4",
+    "n_positive": 1849,
+    "n_negative": 30452,
+    "auroc": 0.9902,
+    "auprc": 0.8703,
+    "fpr_at_recall95": 0.0421,
+    "mean_positive_score": 0.9719,
+    "mean_negative_score": 0.6165
+  },
+  {
+    "model": "coderank",
+    "level": "L5",
+    "n_positive": 61,
+    "n_negative": 30452,
+    "auroc": 0.9992,
+    "auprc": 0.6572,
+    "fpr_at_recall95": 0.0012,
+    "mean_positive_score": 0.9942,
+    "mean_negative_score": 0.6165
+  },
+  {
+    "model": "coderank",
+    "level": "L6",
+    "n_positive": 53,
+    "n_negative": 30452,
+    "auroc": 0.6805,
+    "auprc": 0.0405,
+    "fpr_at_recall95": 0.7405,
+    "mean_positive_score": 0.7342,
+    "mean_negative_score": 0.6165
+  }
+]

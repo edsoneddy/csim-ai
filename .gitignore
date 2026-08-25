@@ -7,3 +7,7 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# model checkpoints -- large binaries, don't belong in git history.
+# training/artifacts/train_log_v1.jsonl (the metric history) is tracked.
+training/artifacts/best_checkpoint/

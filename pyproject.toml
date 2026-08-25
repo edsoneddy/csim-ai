@@ -16,9 +16,15 @@ authors = [{ name = "Edsone Eddy", email = "crew0eddy@gmail.com" }]
 dependencies = []
 
 [project.optional-dependencies]
-# torch = [...]        # TODO(fase 5): training/serving with torch backend
+# NOTE: [ast] and [torch] conflict in the same venv -- csim pins
+# numpy==1.26.4 exactly, torch/transformers/sentence-transformers need
+# numpy>=2.0. Fine for now (different phases use different extras
+# sequentially), but needs a real fix before Fase 5 packaging if both
+# are ever needed at once (e.g. csim's TED as an Etapa B feature inside
+# a torch-based scorer).
 ast = ["csim>=3.3.0"]   # optional TED signal via the csim package (Etapa B feature)
 train = ["pyyaml>=6.0", "csim>=3.3.0", "libcst>=1.0"]
+torch = ["torch>=2.9", "transformers>=5.0", "sentence-transformers>=3.0"]  # zero-shot eval (Fase 2), fine-tuning (Fase 3+)
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/csim_ai"]

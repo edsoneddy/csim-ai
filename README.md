@@ -10,8 +10,9 @@ similarity degrades.
 detection (does B solve the same problem as A?). Two independent correct
 solutions to the same problem are a negative, not a positive.
 
-Status: **Fase 1 - synthetic plagiarism generator (L1-L5 done, >=50k
-target reached).** No model code yet.
+Status: **Fase 3 in progress** -- contrastive fine-tune of UniXcoder
+beats zero-shot on a preliminary, early-stopped run (300/1500 steps, dev
+split, one temperature). Not yet a final result -- see below.
 
 ## Layout
 
@@ -375,7 +376,234 @@ dataset, as expected given the narrow scope), 0 rejected. Output:
 `training/data/artifacts/synthetic_l5_v1.jsonl`, same schema, `rule`
 recorded as `inline:<function_name>`.
 
-**Running total: 56,274 synthetic positives** (55,578 + 696). L6 (LLM
-rewrite) is what's left -- it can't get a strong correctness guarantee
-without execution, so it'll ship with `validated_by_execution: false` and
-a manually-reviewed sample, not blanket trust.
+**Running total after L5: 56,274 synthetic positives** (55,578 + 696).
+
+## Fase 1: L6 synthetic positives (free-form LLM rewrite)
+
+Unlike L1-L5, there is no static safety argument for L6 at all -- an LLM
+can silently change behavior, and per Fase 0 we don't execute code to
+check output. Treated accordingly as the lowest-confidence tier: run on
+a *subset*, every row tagged `validated_by_execution: false`, and backed
+by an actual manual review (not just automated checks) before trusting
+it -- exactly what the Fase 1 exit criterion asks for at this level.
+
+Setup: [Ollama](https://ollama.com) running locally (GPU-accelerated on
+the RTX 3060 Ti, confirmed via `nvidia-smi` inside WSL), serving
+`qwen2.5-coder:7b` (Q4 quantized, ~4.7GB). `training/mutate/l6_llm.py`
+prompts it per submission to rewrite the code so it "looks different"
+while explicitly preserving stdin/stdout behavior, strips markdown
+fences from the response, and keeps the result only if it still parses.
+
+```bash
+ollama pull qwen2.5-coder:7b   # one-time, ~4.7GB
+
+./.venv/bin/python -m training.mutate.l6_llm \
+  --dataset-dir /path/to/dataset \
+  --manifest training/data/artifacts/manifest_v1.jsonl \
+  --splits training/data/artifacts/problem_splits_v1.json \
+  --n-samples 400
+```
+
+Result on a seeded random subset of 400 submissions: **400/400 parsed**
+(0 syntax failures, 0 unreachable), ~2-5s/generation after model
+warm-up. Output: `training/data/artifacts/synthetic_l6_v1.jsonl`, same
+schema as other levels, `rule: "llm_rewrite"`, plus a
+`heuristic_io_counts_match` field (does the rewrite have the same
+input()/print() call *count* as the original -- informational only, not
+a filter, since a legitimate rewrite can merge print calls; 36/400 =
+9% didn't match).
+
+**Manual review** (the actual point of this section): a seeded 30-pair
+sample (`l6_manual_review_sample.jsonl`, original + rewrite side by
+side) was read by hand, line by line -- notes in
+`l6_manual_review_notes.md`. **30/30 read as behaviorally correct**,
+including real restructuring (not just renaming): moving a `print` from
+inside a function to the caller, replacing a manual counter with a
+boolean-toggle expression, inlining a confusingly-shadowed nested
+function. One narrow caveat found (replacing indexed access with a
+plain iteration is only equivalent if the input is well-formed, which
+judge input is but isn't *guaranteed* to be) -- judged acceptable, not a
+rejection. Both `heuristic_io_counts_match: false` cases in the sample
+were confirmed correct on reading: the heuristic missed a call because
+the model renamed the reassigned-`input` variable, not because behavior
+changed.
+
+This is a manual read, not a proof -- no test cases were run against
+either version, since Fase 0 ruled that out. It's the strongest check
+available under that constraint, but 30/400 is a ~7.5% audit sample:
+treat the batch as spot-checked and consistent, not individually
+verified. If L6 pairs turn out to matter a lot for the final model
+(Fase 3), revisit with a larger review sample before trusting them at
+scale.
+
+## Fase 1 total: 56,674 synthetic positives
+
+13,370 (L1) + 23,467 (L2) + 4,387 (L3) + 14,354 (L4) + 696 (L5) + 400
+(L6) -- past the roadmap's >=50k target, with a manually-reviewed L6
+sample closing out the Fase 1 exit criterion.
+
+## Fase 2: zero-shot baseline
+
+Cosine similarity from pretrained code encoders, no fine-tuning --
+Fase 2's job is just to confirm (or not) the embedding collapse the
+literature reports (section 3 of the brief) on *our own* dataset, per
+level, before we spend a week fine-tuning anything in Fase 3.
+
+**CodeSage-v2-small was dropped from the comparison.** Its HF repo ships
+custom `trust_remote_code` modeling code old enough that it doesn't run
+under Python 3.14 / transformers 5.x without patching multiple removed
+internal APIs one at a time -- fixed `Conv1D`'s import path, then hit a
+missing `all_tied_weights_keys`, then a missing `get_head_mask`, with no
+sign of it stopping there. This is the same Python-3.14-vs-ecosystem
+friction flagged as a risk back in Fase 0; decided not worth chasing
+further for a reference-point baseline. **UniXcoder-base** (MIT, via
+`transformers`) and **CodeRankEmbed** (MIT, via `sentence-transformers`,
+needs `trust_remote_code=True`) both loaded and ran cleanly.
+
+CodeRankEmbed is a retrieval model (its only defined prompt is
+`"Represent this query for searching relevant code: "`, meant for a text
+query against a code document) -- our task is code-vs-code similarity,
+not query-to-document retrieval, so both sides are embedded as plain
+documents, no query prefix. Worth keeping in mind when reading its
+numbers: this is an out-of-domain use of the model.
+
+Positives: (original, mutated) pairs from each of L1-L6 (Fase 1), **dev
+split only** -- test stays untouched for later phases, even though
+nothing is being trained here. Negatives: the same-problem, dev-split,
+non-duplicate pairs from the csim baseline (Fase 0), still excluding
+everything in `hard_negative_exclusions_v1.jsonl` -- **one shared
+negative pool (30,452 pairs) reused across every level and both models**,
+since it doesn't depend on the encoder. Metrics match Fase 0's protocol:
+AUROC, AUPRC, FPR@recall95.
+
+```bash
+./.venv/bin/pip install -e ".[torch]"   # torch, transformers, sentence-transformers
+
+./.venv/bin/python -m training.eval.zero_shot_baseline \
+  --dataset-dir /path/to/dataset \
+  --manifest training/data/artifacts/manifest_v1.jsonl
+```
+
+| Level | UniXcoder AUROC | CodeRankEmbed AUROC | n positive |
+|---|---|---|---|
+| L1 (cosmetic) | 0.989 | 0.992 | 1,821 |
+| L2 (rename) | **0.800** | **0.776** | 3,080 |
+| L3 (reorder) | 0.9999 | 0.9999 | 416 |
+| L4 (control flow) | 0.979 | 0.990 | 1,849 |
+| L5 (inline) | 0.988 | 0.999 | 61 |
+| L6 (LLM rewrite) | **0.608** | **0.681** | 53 |
+
+Full numbers (AUPRC, FPR@recall95, mean scores) in
+`training/eval/artifacts/zero_shot_baseline_v1.json`.
+
+**The collapse is confirmed, and it's sharper than the shape the
+literature reports.** L1/L3 near-perfect and L6 the worst matches
+section 3's L1-L3-vs-L4-L6 story, but here **L2 (pure identifier
+renaming) is the second-worst level for both models** -- worse than L4
+(control-flow rewrites) and L5 (function inlining), which is not the
+"easy/hard" ordering a human would guess. Renaming is usually treated as
+the trivial case in plagiarism taxonomies; these off-the-shelf embeddings
+are apparently more sensitive to identifier text than to structural
+changes. That's a concrete, actionable target for the contrastive
+fine-tune in Fase 3, not just "do better on the hard levels in general."
+
+L6's FPR@recall95 (0.84 UniXcoder, 0.74 CodeRankEmbed -- in
+`zero_shot_baseline_v1.json`) means: to catch 95% of L6-level plagiarism
+with either encoder's raw cosine, 74-84% of clean same-problem pairs
+would also get flagged. Unusable standalone at that level, same
+conclusion Fase 0 reached for csim on ConPlag.
+
+Caveats: L5 (n=61) and L6 (n=53) are small samples inherited from Fase
+1's scope decisions there (simple-function inlining is rare; L6 only ran
+on a 400-submission subset) -- read those two rows as indicative, not
+precise. installing torch bumped numpy past csim's exact `==1.26.4` pin in this
+venv (still installed, just version-mismatched -- see the `[ast]`/
+`[torch]` conflict noted in `pyproject.toml`), so there's no in-venv
+apples-to-apples csim-vs-encoder number for L1-L6 in this run; Fase 0's
+csim numbers (section above) are the reference until that packaging
+conflict is resolved.
+
+## Fase 3: contrastive fine-tune (in progress -- preliminary result)
+
+Etapa A (bi-encoder). Backbone: **UniXcoder-base**, not CodeSage-v2-small
+-- CodeSage doesn't run in this environment (Fase 2), and UniXcoder
+already has a measured zero-shot baseline here, so the before/after
+comparison is apples to apples.
+
+**Batching**: `training/data/contrastive_batches.py` draws problems and,
+when possible, 2 submissions per problem, so in-batch negatives include
+both easy negatives (different problem) and hard negatives (same
+problem) without any special-cased mining -- the batch composition does
+that work, the loss doesn't need to know about it. Same-problem pairs
+flagged unsafe in `hard_negative_exclusions_v1.jsonl` (Fase 0) are never
+placed together. Each anchor's positive is a uniformly random L1-L6
+mutation of it (train split) -- every step sees a random level.
+
+**Loss**: symmetric InfoNCE over the in-batch similarity matrix
+(temperature 0.07, untested against alternatives -- see caveats).
+
+**A real memory bug, found by testing, not by inspection:** the first
+smoke test threw intermittent CUDA OOM on the 8GB 3060 Ti -- training
+still completed (PyTorch's allocator recovers), but each recovery cost
+30-100+ seconds, making training look far slower than it actually was.
+Root cause: fp32 throughout, and two full forward passes (anchor,
+positive) kept alive at once for the backward pass, occasionally spiking
+when a batch happened to include a long submission. Fixed with
+`torch.autocast(dtype=torch.bfloat16)` on both the training and eval
+encode paths, plus reducing `n_problems_per_batch` from 16 to 10 -- this
+took step time from ~38s/step (with OOM recovery) down to ~4.4s/step
+with zero OOM warnings across a 300-step run.
+
+```bash
+./.venv/bin/python -m training.train_biencoder \
+  --dataset-dir /path/to/dataset \
+  --manifest training/data/artifacts/manifest_v1.jsonl \
+  --splits training/data/artifacts/problem_splits_v1.json \
+  --config training/configs/biencoder.yaml
+```
+
+Dev evaluation runs periodically (`eval_every` in the config) using the
+*exact* protocol and negative pool from Fase 2's zero-shot baseline,
+against the live in-training weights, so training progress is directly
+comparable to the zero-shot numbers -- and the best checkpoint by mean
+L4-L6 dev AUROC (the levels Decision 1 cares about) is saved to
+`training/artifacts/best_checkpoint/`.
+
+### Preliminary result (step 300/1500, dev split)
+
+| Level | Zero-shot UniXcoder | Fine-tuned (step 300) |
+|---|---|---|
+| L1 | 0.989 | 0.995 |
+| L2 | 0.800 | 0.992 |
+| L3 | 0.9999 | 0.999 |
+| L4 | 0.979 | 0.997 |
+| L5 | 0.988 | 0.995 |
+| L6 | **0.608** | **0.907** |
+| **mean L4-L6** | **0.859** | **0.967** |
+
+Full per-step history: `training/artifacts/train_log_v1.jsonl`.
+
+**This run was stopped early by choice, not because it plateaued or
+hit a stopping criterion.** A wall-clock estimate from the first eval
+(~21 min) suggested the full 1500 steps / 10 evals would take ~5.3h;
+mid-run investigation found the *first* eval was slow from one-time CUDA
+warmup (kernel compilation) and the second eval (step 300) took only
+~6.5 min -- steady-state cost for the full run is closer to 2.5-3h, but
+that wasn't known until after the decision to stop was already made.
+Treat the numbers above as strong preliminary evidence, not a finished
+Fase 3 result:
+
+- Only 300/1500 planned steps, not run to convergence or plateau.
+- Only one temperature (0.07) -- the planned sweep (0.05/0.07/0.1) never
+  ran.
+- Dev split only, as it should be at this stage -- test stays untouched
+  for the final Decision 1 call, not used yet.
+- L2's jump (0.80 -> 0.99) is a strong signal the fine-tune is directly
+  fixing the specific weakness Fase 2 found (raw embeddings overly
+  sensitive to identifier spelling), not just improving everything
+  uniformly.
+
+**Next**: resume training from `best_checkpoint/` (or restart with the
+now-known ~2.5-3h steady-state budget) to actually reach a stopping
+point, then run the temperature sweep, before treating this as Fase 3's
+final answer to Decision 1.
