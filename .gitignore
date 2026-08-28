@@ -8,6 +8,9 @@ dist/
 build/
 *.egg-info/
 
+# personal runbook, not meant to be published
+PUBLISHING.md
+
 # model checkpoints -- large binaries, don't belong in git history.
 # train_log_v1.jsonl / *_log.jsonl (metric history) files are tracked.
 training/artifacts/best_checkpoint/
