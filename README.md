@@ -910,29 +910,92 @@ only**; revisiting quantization later (static/calibrated int8, more
 engineering effort) only if CPU inference speed becomes a real
 bottleneck in practice.
 
+### Model hosting
+
+The trained weights (bi-encoder ONNX export + the Fase 4 fusion model)
+are hosted on Hugging Face Hub, **not bundled in the package**:
+[edson-eddy/csim-ai](https://huggingface.co/edson-eddy/csim-ai) (public
+model repo, `model.onnx` + tokenizer files + `fusion_model.joblib`).
+`huggingface_hub` is a base dependency (no torch -- just
+requests/filelock/tqdm-scale deps), so `Scorer()` with no arguments
+downloads and caches the bi-encoder on first use with zero setup; a
+local `model_path`/`fusion_model_path` still works and skips the
+network entirely. This was a deliberate reversal of Fase 5's original
+"local path only" decision, made once actually publishing to PyPI raised
+the question -- **retraining isn't a reasonable `setup` step** (needs
+the external dataset, a GPU, ~2.3h, per Fase 3), so shipping usable
+pre-trained weights means hosting them somewhere; Hugging Face Hub was
+chosen over GitHub Releases for the official `huggingface_hub` Python
+client and because the fine-tune's own base model
+(`microsoft/unixcoder-base`) already lives there.
+
 ### API and CLI
+
+**Recommended flow**: `pip install csim-ai[ast,scorer]`, then `csim-ai
+setup` once (downloads and caches the bi-encoder + fusion model from HF
+Hub) -- after that, both the CLI and `Scorer()` auto-detect the cache
+and give the full hybrid score with **no further flags or arguments
+needed**, matching csim's own "install it, run it" simplicity rather
+than requiring `--model-path`/`--fusion-model` every time.
 
 ```python
 from csim_ai import Scorer
 
-scorer = Scorer("training/artifacts/onnx_model", fusion_model_path="training/scorer/artifacts/fusion_model_v1.joblib")
+scorer = Scorer()                     # after `csim-ai setup`: full hybrid, cache auto-detected
+scorer = Scorer(use_fusion=True)      # force-downloads the fusion model too if `setup` wasn't run yet
+scorer = Scorer("training/artifacts/onnx_model", fusion_model_path="training/scorer/artifacts/fusion_model_v1.joblib")  # fully local, no network
 scorer.score(code_a, code_b)
 # {"biencoder_cosine": 0.987, "csim_ted": 0.83, "fusion": 0.978}
 ```
 
+**CLI shape follows csim's**, not a from-scratch design: a single
+`csim-ai` command, an action positional, `--path` pointing at a
+directory compared exhaustively -- same pattern as `csim
+{report,group,tree,view,info} --path DIR --lang ... --talg ...`, since
+this tool has the same predecessor and audience.
+
 ```bash
-csim-ai file_a.py file_b.py \
-  --model-path training/artifacts/onnx_model \
-  --fusion-model training/scorer/artifacts/fusion_model_v1.joblib
+pip install csim-ai[ast,scorer]
+csim-ai setup
+# bi-encoder cached at: ~/.cache/huggingface/hub/models--edson-eddy--csim-ai/...
+# fusion model cached at: .../fusion_model.joblib
+
+csim-ai report --path submissions/
+# b.py is similar to a.py with similarity index: 0.9998 (biencoder_cosine=1.0000, csim_ted=1.0000, fusion=0.9998)
+
+csim-ai group --path submissions/ --threshold 0.9
+# Group 1 (Average Similarity: 1.00): / Unique Files (similarity below threshold): ...
+
+csim-ai info   # like `csim info` -- which optional backends are available
 ```
 
-`csim_ted`/`fusion` are `None` when `csim`/`scikit-learn` aren't
-installed or no `fusion_model_path` is given -- base install still gives
-a usable bi-encoder-only score. Full hybrid needs `pip install
-csim-ai[ast,scorer]`. Model weights aren't bundled (the ONNX export is
-~500MB) -- `--model-path`/`model_path` points at a local export from
-`training/export_onnx.py`, same pattern as `--dataset-dir` elsewhere in
-this repo; no HF Hub upload/download infra yet.
+The "similarity index" is the fusion score when available, else
+`biencoder_cosine`. `--use-fusion` force-downloads the fusion model on
+the spot if `setup` wasn't run first; `--model-path`/`--fusion-model`
+skip the Hub entirely and use local files. `csim_ted`/`fusion` are
+`None` (and dropped from the report line) when `csim`/`scikit-learn`
+aren't installed, so a bare `pip install csim-ai` (no extras) still
+gives a usable bi-encoder-only score without ever needing `setup`.
+
+**`csim-ai setup`** -- separate from `pip install .`, which only
+installs the Python package: by default it downloads and caches the
+pre-trained bi-encoder + fusion model from HF Hub (the same thing
+`Scorer(use_fusion=True)`/`--use-fusion` trigger lazily on first score --
+`setup` just does it up front, e.g. in a Dockerfile build step so the
+first real request isn't the one paying for the download); with
+`--export-from CHECKPOINT --out DIR` it runs the ONNX export (`pip
+install csim-ai[export]` for `torch`/`transformers`/`onnx`) against any
+local torch checkpoint directory instead, entirely offline -- no Hub
+access, for anyone with their own fine-tuned checkpoint rather than this
+project's weights. `csim-ai info` covers the old "which backends are
+installed" check (onnxruntime/tokenizers/huggingface_hub/csim/
+scikit-learn/torch) separately, mirroring `csim info`. The export logic
+itself lives in `src/csim_ai/_export.py`, shared between `csim-ai
+setup --export-from` and the dev-side `training/export_onnx.py` (which
+defaults to this repo's `training/artifacts/best_checkpoint`) rather
+than duplicated -- a real `pip install csim-ai` has no `training/` tree
+to call into, so the setup command needed its own self-contained path
+to the same code.
 
 Verified end-to-end against real dataset pairs: an unrelated same-problem
 pair scored `fusion=0.00007`, a true L4-mutation positive pair scored
