@@ -11,6 +11,8 @@ import itertools
 import sys
 from pathlib import Path
 
+import numpy as np
+
 from . import Scorer
 
 
@@ -23,11 +25,38 @@ def _iter_py_files(path: Path) -> list[Path]:
 
 
 def _score_all_pairs(files: list[Path], scorer: Scorer) -> dict[tuple[Path, Path], dict]:
+    # Each file is encoded/preprocessed once here, not once per pair it
+    # appears in -- `Scorer.score()` is a clean pairwise API but calling
+    # it per pair over a whole directory means every file gets
+    # re-encoded and re-parsed for TED once for each of the other N-1
+    # files, which made even ~30 files (~400 pairs) take minutes.
+    texts = {f: f.read_text(encoding="utf-8", errors="ignore") for f in files}
+
+    embeddings = scorer._encoder.encode([texts[f] for f in files])
+    emb_by_file = dict(zip(files, embeddings))
+
+    ted_trees = None
+    try:
+        from ._ted import preprocess as ted_preprocess
+        from ._ted import similarity as ted_similarity
+
+        ted_trees = {f: ted_preprocess(texts[f]) for f in files}
+    except ImportError:
+        pass
+
     results = {}
     for a, b in itertools.combinations(files, 2):
-        code_a = a.read_text(encoding="utf-8", errors="ignore")
-        code_b = b.read_text(encoding="utf-8", errors="ignore")
-        results[(a, b)] = scorer.score(code_a, code_b)
+        cosine = float(np.dot(emb_by_file[a], emb_by_file[b]))
+
+        ted = None
+        if ted_trees is not None and ted_trees[a] is not None and ted_trees[b] is not None:
+            ted = ted_similarity(ted_trees[a], ted_trees[b])
+
+        fusion = None
+        if scorer._fusion is not None and ted is not None:
+            fusion = scorer._fusion.predict(cosine, ted)
+
+        results[(a, b)] = {"biencoder_cosine": cosine, "csim_ted": ted, "fusion": fusion}
     return results
 
 
