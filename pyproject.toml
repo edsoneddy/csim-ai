@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "csim-ai"
-version = "0.0.1"
+version = "0.0.2"
 description = "Neural-augmented Python code plagiarism detection for programming judges."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,7 +19,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Quality Assurance",
 ]
-dependencies = ["numpy>=2.0", "onnxruntime>=1.20", "tokenizers>=0.20", "huggingface_hub>=0.25"]
+dependencies = ["numpy>=1.24", "onnxruntime>=1.20", "tokenizers>=0.20", "huggingface_hub>=0.25"]
 
 [project.urls]
 Homepage = "https://github.com/edsoneddy/csim-ai"
@@ -31,14 +31,27 @@ Documentation = "https://github.com/edsoneddy/csim-ai#readme"
 csim-ai = "csim_ai.cli:main"
 
 [project.optional-dependencies]
-# NOTE: [ast]'s csim>=3.3.0 pins numpy==1.26.4 exactly on paper, while
-# [torch] needs numpy>=2.0 -- looked like a hard conflict when [torch]
-# first landed (Fase 2), but Fase 4 confirmed both extras installed
-# together actually work at runtime in this venv (numpy 2.5.2): csim's
-# TED score recomputed to match a stored Fase 0 value exactly, then ran
-# at scale (tens of thousands of pairs) with no issues. Still needs a
-# real packaging decision before Fase 5 (drop the exact pin? vendor a
-# compat shim?), but it's not blocking anything today.
+# NOTE: csim>=3.3.0 pins numpy==1.26.4 exactly. Looked like it coexisted
+# fine with the rest of the stack (numpy>=2.0) in Fase 4's dev venv --
+# but that venv already had numpy 2.5.2 installed before csim was added,
+# so pip never had to actually *resolve* the exact pin against the rest
+# in one shot. A genuinely clean `pip install csim-ai[ast,scorer]`
+# (0.0.1, published) hit pip's strict resolver and failed outright:
+# ResolutionImpossible, numpy>=2.0 (this package) vs. numpy==1.26.4
+# (csim). Fixed in 0.0.2 by dropping the artificial numpy>=2.0 floor to
+# numpy>=1.24 -- nothing in this dependency tree actually needs 2.0
+# (onnxruntime>=1.21.6, transformers>=1.17, scikit-learn/
+# sentence-transformers>=1.24, torch has no floor at all), so
+# numpy==1.26.4 now satisfies everyone and pip resolves cleanly.
+# A second, related bug this surfaced: `fusion_model_v1.joblib` had been
+# pickled under numpy 2.5.2, and joblib/pickle's numpy RandomState/
+# BitGenerator format isn't backward-compatible -- loading it under
+# numpy 1.26.4 raised `ValueError: ... PCG64 is not a known BitGenerator
+# module`. Fixed by retraining/repickling the fusion model under numpy
+# 1.26.4 specifically (verified to load correctly under *both* 1.26.4
+# and 2.5.2 afterward -- numpy's forward compat direction, not
+# backward). Any future retrain of the fusion model must be pickled
+# under the oldest supported numpy, not whatever's in the dev venv.
 ast = ["csim>=3.3.0"]   # optional TED signal via the csim package (Etapa B feature)
 train = ["pyyaml>=6.0", "csim>=3.3.0", "libcst>=1.0"]
 torch = ["torch>=2.9", "transformers>=5.0", "sentence-transformers>=3.0"]  # zero-shot eval (Fase 2), fine-tuning (Fase 3+)
