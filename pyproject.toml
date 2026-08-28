@@ -10,7 +10,22 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Edsone Eddy", email = "crew0eddy@gmail.com" }]
+keywords = ["plagiarism detection", "code similarity", "bi-encoder", "onnx", "programming judges"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = ["numpy>=2.0", "onnxruntime>=1.20", "tokenizers>=0.20", "huggingface_hub>=0.25"]
+
+[project.urls]
+Homepage = "https://github.com/edsoneddy/csim-ai"
+"Source Code" = "https://github.com/edsoneddy/csim-ai"
+"Bug Tracker" = "https://github.com/edsoneddy/csim-ai/issues"
+Documentation = "https://github.com/edsoneddy/csim-ai#readme"
 
 [project.scripts]
 csim-ai = "csim_ai.cli:main"
@@ -33,3 +48,18 @@ dev = ["pytest>=8.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/csim_ai"]
+
+[tool.hatch.build.targets.sdist]
+# Allowlist, not a denylist -- hatchling's default sdist walks the whole
+# repo (not just git-tracked files), which pulled in training/'s
+# research artifacts and even .claude/ session state on a first build.
+# Keep the sdist scoped to what's actually needed to build the wheel +
+# the files PyPI expects (README/LICENSE), same as the wheel's own
+# "lean base install" scope -- docs/ and training/ stay on GitHub only.
+include = [
+    "src/csim_ai",
+    "tests",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
