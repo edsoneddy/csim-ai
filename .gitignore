@@ -12,5 +12,16 @@ build/
 # train_log_v1.jsonl / *_log.jsonl (metric history) files are tracked.
 training/artifacts/best_checkpoint/
 training/artifacts/last_checkpoint/
+training/artifacts/onnx_model/
 training/artifacts/temp_sweep/*/best_checkpoint/
 training/artifacts/temp_sweep/*/last_checkpoint/
+
+# Dolos CLI (Fase 4 baseline) -- npm install output, not source.
+training/eval/dolos_tool/node_modules/
+training/eval/dolos_tool/package-lock.json
+dolos-report-*/
+
+# Fase 4 scorer -- raw per-pair feature dumps (tens of MB, regenerable in
+# ~15-20min via build_features.py). fusion_model_v1.joblib (~300KB) and
+# eval_fusion_v1.json (the actual result) are tracked.
+training/scorer/artifacts/features_*.jsonl

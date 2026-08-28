@@ -10,21 +10,26 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Edsone Eddy", email = "crew0eddy@gmail.com" }]
-# Base install stays free of heavy deps (no torch). Real runtime deps
-# (onnxruntime, numpy, tokenizers) land here once src/csim_ai has an
-# inference path to run (Fase 5).
-dependencies = []
+dependencies = ["numpy>=2.0", "onnxruntime>=1.20", "tokenizers>=0.20"]
+
+[project.scripts]
+csim-ai = "csim_ai.cli:main"
 
 [project.optional-dependencies]
-# NOTE: [ast] and [torch] conflict in the same venv -- csim pins
-# numpy==1.26.4 exactly, torch/transformers/sentence-transformers need
-# numpy>=2.0. Fine for now (different phases use different extras
-# sequentially), but needs a real fix before Fase 5 packaging if both
-# are ever needed at once (e.g. csim's TED as an Etapa B feature inside
-# a torch-based scorer).
+# NOTE: [ast]'s csim>=3.3.0 pins numpy==1.26.4 exactly on paper, while
+# [torch] needs numpy>=2.0 -- looked like a hard conflict when [torch]
+# first landed (Fase 2), but Fase 4 confirmed both extras installed
+# together actually work at runtime in this venv (numpy 2.5.2): csim's
+# TED score recomputed to match a stored Fase 0 value exactly, then ran
+# at scale (tens of thousands of pairs) with no issues. Still needs a
+# real packaging decision before Fase 5 (drop the exact pin? vendor a
+# compat shim?), but it's not blocking anything today.
 ast = ["csim>=3.3.0"]   # optional TED signal via the csim package (Etapa B feature)
 train = ["pyyaml>=6.0", "csim>=3.3.0", "libcst>=1.0"]
 torch = ["torch>=2.9", "transformers>=5.0", "sentence-transformers>=3.0"]  # zero-shot eval (Fase 2), fine-tuning (Fase 3+)
+scorer = ["scikit-learn>=1.5", "joblib>=1.3"]  # GBDT fusion scorer (Fase 4)
+export = ["onnx>=1.15"]  # dev-only, needed by training/export_onnx.py, not the runtime package
+dev = ["pytest>=8.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/csim_ai"]

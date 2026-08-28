@@ -1,0 +1,47 @@
+{
+  "levels": {
+    "L1": {
+      "n_positive": 1851,
+      "n_negative": 33650,
+      "auroc": 0.9998,
+      "auprc": 0.9953,
+      "fpr_at_recall95": 0.0
+    },
+    "L2": {
+      "n_positive": 3333,
+      "n_negative": 33650,
+      "auroc": 0.9999,
+      "auprc": 0.9979,
+      "fpr_at_recall95": 0.0
+    },
+    "L3": {
+      "n_positive": 882,
+      "n_negative": 33650,
+      "auroc": 0.9973,
+      "auprc": 0.898,
+      "fpr_at_recall95": 0.0121
+    },
+    "L4": {
+      "n_positive": 1979,
+      "n_negative": 33650,
+      "auroc": 0.9845,
+      "auprc": 0.6595,
+      "fpr_at_recall95": 0.0352
+    },
+    "L6": {
+      "n_positive": 57,
+      "n_negative": 33650,
+      "auroc": 0.9747,
+      "auprc": 0.5098,
+      "fpr_at_recall95": 0.1691
+    },
+    "L5": {
+      "n_positive": 48,
+      "n_negative": 33650,
+      "auroc": 0.9961,
+      "auprc": 0.1942,
+      "fpr_at_recall95": 0.0139
+    }
+  },
+  "mean_l4_l6_auroc": 0.9851
+}
