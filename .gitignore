@@ -9,5 +9,8 @@ build/
 *.egg-info/
 
 # model checkpoints -- large binaries, don't belong in git history.
-# training/artifacts/train_log_v1.jsonl (the metric history) is tracked.
+# train_log_v1.jsonl / *_log.jsonl (metric history) files are tracked.
 training/artifacts/best_checkpoint/
+training/artifacts/last_checkpoint/
+training/artifacts/temp_sweep/*/best_checkpoint/
+training/artifacts/temp_sweep/*/last_checkpoint/

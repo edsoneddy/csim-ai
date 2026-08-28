@@ -523,7 +523,7 @@ apples-to-apples csim-vs-encoder number for L1-L6 in this run; Fase 0's
 csim numbers (section above) are the reference until that packaging
 conflict is resolved.
 
-## Fase 3: contrastive fine-tune (in progress -- preliminary result)
+## Fase 3: contrastive fine-tune (Etapa A -- bi-encoder trained to convergence)
 
 Etapa A (bi-encoder). Backbone: **UniXcoder-base**, not CodeSage-v2-small
 -- CodeSage doesn't run in this environment (Fase 2), and UniXcoder
@@ -569,41 +569,143 @@ comparable to the zero-shot numbers -- and the best checkpoint by mean
 L4-L6 dev AUROC (the levels Decision 1 cares about) is saved to
 `training/artifacts/best_checkpoint/`.
 
-### Preliminary result (step 300/1500, dev split)
+### Result (step 1350/1500 best checkpoint, dev split, temperature 0.07)
 
-| Level | Zero-shot UniXcoder | Fine-tuned (step 300) |
+| Level | Zero-shot UniXcoder | Fine-tuned (step 1350) |
 |---|---|---|
-| L1 | 0.989 | 0.995 |
-| L2 | 0.800 | 0.992 |
-| L3 | 0.9999 | 0.999 |
-| L4 | 0.979 | 0.997 |
+| L1 | 0.989 | 0.998 |
+| L2 | 0.800 | 0.999 |
+| L3 | 0.9999 | 0.9999 |
+| L4 | 0.979 | 0.9995 |
 | L5 | 0.988 | 0.995 |
-| L6 | **0.608** | **0.907** |
-| **mean L4-L6** | **0.859** | **0.967** |
+| L6 | **0.608** | **0.950** |
+| **mean L4-L6** | **0.859** | **0.981** |
 
-Full per-step history: `training/artifacts/train_log_v1.jsonl`.
+(Per-level numbers above are read off `training/artifacts/train_log_v1.jsonl`'s
+step-1350 entry; L6 there is 0.9495, rounded to 0.950 in the table.)
 
-**This run was stopped early by choice, not because it plateaued or
-hit a stopping criterion.** A wall-clock estimate from the first eval
-(~21 min) suggested the full 1500 steps / 10 evals would take ~5.3h;
-mid-run investigation found the *first* eval was slow from one-time CUDA
-warmup (kernel compilation) and the second eval (step 300) took only
-~6.5 min -- steady-state cost for the full run is closer to 2.5-3h, but
-that wasn't known until after the decision to stop was already made.
-Treat the numbers above as strong preliminary evidence, not a finished
-Fase 3 result:
+Full per-eval history (steps 150 through 1500):
 
-- Only 300/1500 planned steps, not run to convergence or plateau.
-- Only one temperature (0.07) -- the planned sweep (0.05/0.07/0.1) never
-  ran.
+| Step | mean L4-L6 AUROC |
+|---|---|
+| 150 | 0.9546 |
+| 300 | 0.9666 |
+| 450 | 0.9644 |
+| 600 | 0.9676 |
+| 750 | 0.9675 |
+| 900 | 0.9741 |
+| 1050 | 0.9770 |
+| 1200 | 0.9794 |
+| **1350** | **0.9815 (best)** |
+| 1500 | 0.9792 |
+
+Run to the full planned 1500 steps (in two parts -- 0-300 in one session,
+300-1500 resumed in a later one, see "Resume support" below); monotonic
+improvement with normal step-to-step noise (dips at 450 and 1500, both
+within ~0.002-0.003 of the surrounding trend) and a clear plateau by the
+last ~150 steps -- step 1500 landed *below* step 1350's peak, so this is
+a real plateau, not an early stop. `best_checkpoint/` holds the step-1350
+weights, not step-1500's.
+
 - Dev split only, as it should be at this stage -- test stays untouched
-  for the final Decision 1 call, not used yet.
-- L2's jump (0.80 -> 0.99) is a strong signal the fine-tune is directly
-  fixing the specific weakness Fase 2 found (raw embeddings overly
-  sensitive to identifier spelling), not just improving everything
-  uniformly.
+  for the final Decision 1 call.
+- Only one temperature (0.07) tested so far -- the planned sweep
+  (0.05/0.07/0.1) is next.
+- L2's jump (0.80 -> 0.999) and L6's (0.608 -> 0.950) are the two biggest
+  moves and both land on exactly the weaknesses Fase 2 found: raw
+  embeddings overly sensitive to identifier spelling (L2) and to
+  free-form LLM rewrites (L6). L1/L3/L4/L5 were already near-ceiling
+  zero-shot and stayed there or nudged closer to 1.0 -- the fine-tune is
+  fixing the two specific weak points, not uniformly inflating every
+  score.
 
-**Next**: resume training from `best_checkpoint/` (or restart with the
-now-known ~2.5-3h steady-state budget) to actually reach a stopping
-point, then run the temperature sweep, before treating this as Fase 3's
-final answer to Decision 1.
+**Resume support added**, used to run this continuation.
+`training/artifacts/best_checkpoint/` only ever held weights (saved via
+`save_pretrained`), so it couldn't resume the exact
+optimizer/scheduler/step trajectory from the step-300 checkpoint -- only
+warm-start a new one. `train_biencoder.py` now also writes
+`training/artifacts/last_checkpoint/` on every eval (weights +
+`trainer_state.pt`: optimizer state, scheduler state, step, best score,
+and python/numpy/torch/cuda RNG state, always overwritten with the
+latest step, independent of `best_checkpoint/` which only updates on
+improvement) so a future stop can resume exactly via `--resume-from
+training/artifacts/last_checkpoint`. Both directories are gitignored
+(large binaries). The step-300 checkpoint used here predated this, so
+continuing from it was necessarily a warm start: `--resume-from
+training/artifacts/best_checkpoint --start-step 300` -- fresh
+optimizer/scheduler state, but step numbering aligned with the existing
+`train_log_v1.jsonl` history. Confirmed low-risk in practice: no
+discontinuity in the metric trend across the step-300 join (0.9666 ->
+0.9644 -> 0.9676, i.e. within the run's normal noise band), consistent
+with `warmup_steps=100` already being long saturated by step 300.
+
+**Temperature sweep: complete.** Short 600-step comparison runs for 0.05
+and 0.1 (fresh from `microsoft/unixcoder-base`, same seed/lr/warmup/
+batching as `biencoder.yaml`), compared against the temperature-0.07
+trajectory above at the same four eval points:
+
+| Step | temp 0.05 | temp 0.07 | temp 0.1 |
+|---|---|---|---|
+| 150 | 0.9557 | 0.9546 | 0.9582 |
+| 300 | 0.9670 | 0.9666 | 0.9667 |
+| 450 | 0.9693 | 0.9644 | 0.9691 |
+| 600 | 0.9769 | 0.9676 | 0.9739 |
+
+temp=0.05 led clearly at the 600-step mark, so per the pre-agreed scope
+decision it was resumed (via `--resume-from
+training/artifacts/temp_sweep/temp0.05/last_checkpoint`, continuing the
+exact trajectory, not a warm start) out to the full 1500 steps.
+**Result: the early lead didn't hold.** temp=0.07's best (step 1350,
+0.9815) ends up ahead of temp=0.05's best (also step 1350, 0.9784) --
+the 600-step comparison was a misleading signal for where the full run
+lands. `training/artifacts/best_checkpoint/` (temp=0.07) stays the model
+used for the final evaluation below; temp=0.05's full run is kept at
+`training/artifacts/temp_sweep/temp0.05/` for the record but not used
+further. temp=0.1 was only run to 600 steps (already behind both others
+there) and wasn't extended.
+
+### Final evaluation on the test split -- Decision 1
+
+`training/eval/final_test_eval.py` runs the same protocol as Fase 2's
+zero-shot baseline and Fase 3's periodic dev eval (same shared negative
+pool, same per-level synthetic positives), switched to the **test
+split**, untouched until now, for both the pretrained
+`microsoft/unixcoder-base` weights and the fine-tuned
+`best_checkpoint/`, through the same encoder class so the only variable
+is the weights.
+
+```bash
+./.venv/bin/python -m training.eval.final_test_eval \
+  --dataset-dir /path/to/dataset \
+  --manifest training/data/artifacts/manifest_v1.jsonl \
+  --checkpoint training/artifacts/best_checkpoint
+```
+
+| Level | Zero-shot (test) | Fine-tuned (test) |
+|---|---|---|
+| L1 | 0.989 | 0.998 |
+| L2 | 0.836 | 0.999 |
+| L3 | 1.000 | 1.000 |
+| L4 | 0.995 | 0.9997 |
+| L5 | 0.997 | 0.998 |
+| L6 | **0.583** | **0.931** |
+| **mean L4-L6** | **0.858** | **0.976** |
+
+Full numbers in `training/eval/artifacts/final_test_eval_v1.json`.
+
+**Decision 1: the fine-tune clearly beats zero-shot on held-out test
+data** -- mean L4-L6 AUROC 0.858 -> 0.976 (+0.118), and every level moved
+up or stayed at ceiling, none regressed. The test numbers track the dev
+numbers closely (dev mean L4-L6 was 0.9815; test is 0.976, ~0.005 lower)
+-- a small, healthy generalization gap, not overfitting to the dev split
+the training loop was periodically evaluating against.
+
+csim is not part of this comparison: installing torch bumped numpy past
+csim's `==1.26.4` pin in this venv, so there's no in-venv csim AUROC for
+L1-L6 yet (same caveat as Fase 2) -- pending the packaging conflict noted
+for Fase 5.
+
+**Etapa A (bi-encoder) is done.** Next: Fase 4 (scorer + fusion) --
+Decision 2's kill switch (must beat Dolos AUROC 0.864 by +0.03 and
+reduce FPR@recall95 vs csim, else ship the features+GBDT hybrid
+instead).

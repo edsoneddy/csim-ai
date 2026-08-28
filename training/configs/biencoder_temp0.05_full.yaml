@@ -1,0 +1,17 @@
+# Fase 3 -- full run at temperature=0.05, the winner of the short (600-step)
+# temperature sweep (see README). Same seed/lr/warmup/batching as
+# biencoder.yaml (temp=0.07 main run); only temperature differs.
+# Used with --resume-from training/artifacts/temp_sweep/temp0.05/last_checkpoint
+# to continue the sweep run's exact trajectory from step 600 to 1500, rather
+# than restarting from scratch.
+seed: 42
+
+lr: 2.0e-5
+warmup_steps: 100
+max_steps: 1500
+n_problems_per_batch: 10
+temperature: 0.05
+max_length: 512
+
+log_every: 20
+eval_every: 150

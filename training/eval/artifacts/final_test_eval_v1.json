@@ -1,0 +1,96 @@
+{
+  "zero_shot": {
+    "levels": {
+      "L1": {
+        "n_positive": 1851,
+        "n_negative": 33650,
+        "auroc": 0.9894,
+        "auprc": 0.9418,
+        "fpr_at_recall95": 0.0456
+      },
+      "L2": {
+        "n_positive": 3333,
+        "n_negative": 33650,
+        "auroc": 0.836,
+        "auprc": 0.4904,
+        "fpr_at_recall95": 0.6583
+      },
+      "L3": {
+        "n_positive": 882,
+        "n_negative": 33650,
+        "auroc": 1.0,
+        "auprc": 0.9996,
+        "fpr_at_recall95": 0.0
+      },
+      "L4": {
+        "n_positive": 1979,
+        "n_negative": 33650,
+        "auroc": 0.9945,
+        "auprc": 0.9221,
+        "fpr_at_recall95": 0.0301
+      },
+      "L5": {
+        "n_positive": 48,
+        "n_negative": 33650,
+        "auroc": 0.9969,
+        "auprc": 0.64,
+        "fpr_at_recall95": 0.0104
+      },
+      "L6": {
+        "n_positive": 57,
+        "n_negative": 33650,
+        "auroc": 0.5834,
+        "auprc": 0.0028,
+        "fpr_at_recall95": 0.9407
+      }
+    },
+    "mean_l4_l6_auroc": 0.8583
+  },
+  "fine_tuned": {
+    "levels": {
+      "L1": {
+        "n_positive": 1851,
+        "n_negative": 33650,
+        "auroc": 0.9979,
+        "auprc": 0.9762,
+        "fpr_at_recall95": 0.0103
+      },
+      "L2": {
+        "n_positive": 3333,
+        "n_negative": 33650,
+        "auroc": 0.999,
+        "auprc": 0.9894,
+        "fpr_at_recall95": 0.0051
+      },
+      "L3": {
+        "n_positive": 882,
+        "n_negative": 33650,
+        "auroc": 1.0,
+        "auprc": 0.9997,
+        "fpr_at_recall95": 0.0
+      },
+      "L4": {
+        "n_positive": 1979,
+        "n_negative": 33650,
+        "auroc": 0.9997,
+        "auprc": 0.9968,
+        "fpr_at_recall95": 0.0003
+      },
+      "L5": {
+        "n_positive": 48,
+        "n_negative": 33650,
+        "auroc": 0.9982,
+        "auprc": 0.6538,
+        "fpr_at_recall95": 0.007
+      },
+      "L6": {
+        "n_positive": 57,
+        "n_negative": 33650,
+        "auroc": 0.9313,
+        "auprc": 0.0485,
+        "fpr_at_recall95": 0.331
+      }
+    },
+    "mean_l4_l6_auroc": 0.9764
+  }
+}

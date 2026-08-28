@@ -57,9 +57,9 @@ def mean_pool(last_hidden_state: torch.Tensor, attention_mask: torch.Tensor) -> 
 
 
 class BiEncoder:
-    def __init__(self, device: str):
-        self.tok = AutoTokenizer.from_pretrained(MODEL_ID)
-        self.model = AutoModel.from_pretrained(MODEL_ID).to(device)
+    def __init__(self, device: str, model_path: str = MODEL_ID):
+        self.tok = AutoTokenizer.from_pretrained(model_path)
+        self.model = AutoModel.from_pretrained(model_path).to(device)
         self.device = device
 
     def train(self) -> None:
@@ -182,6 +182,27 @@ def main() -> None:
     parser.add_argument("--splits", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, default=Path(__file__).parent / "artifacts")
+    parser.add_argument(
+        "--resume-from",
+        type=Path,
+        default=None,
+        help=(
+            "Directory to load model weights from instead of the base MODEL_ID "
+            "(e.g. a previous best_checkpoint/ or last_checkpoint/). If it also "
+            "contains trainer_state.pt (optimizer/scheduler/step/rng, saved by "
+            "this script's own last_checkpoint/), those are restored too and "
+            "training continues from the saved step. Otherwise it's a warm "
+            "start: weights only, fresh optimizer/scheduler, step count from "
+            "--start-step."
+        ),
+    )
+    parser.add_argument(
+        "--start-step",
+        type=int,
+        default=0,
+        help="Step count to resume at when --resume-from has no trainer_state.pt "
+        "(purely for log/eval_every alignment with a prior run's history).",
+    )
     args = parser.parse_args()
 
     if not args.dataset_dir:
@@ -205,7 +226,8 @@ def main() -> None:
     manifest, dev_negatives, dev_positives = load_dev_eval_data(args.manifest, data_dir, eval_dir)
     print(f"dev negatives: {len(dev_negatives)}, dev positives by level: {[(k, len(v)) for k, v in dev_positives.items()]}")
 
-    encoder = BiEncoder(device)
+    model_path = str(args.resume_from) if args.resume_from else MODEL_ID
+    encoder = BiEncoder(device, model_path=model_path)
     encoder.train()
     optimizer = torch.optim.AdamW(encoder.model.parameters(), lr=cfg["lr"])
     n_steps = cfg["max_steps"] // cfg.get("grad_accum_steps", 1) * cfg.get("grad_accum_steps", 1)
@@ -217,11 +239,42 @@ def main() -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     log_path = args.out_dir / "train_log_v1.jsonl"
     best_ckpt_dir = args.out_dir / "best_checkpoint"
+    last_ckpt_dir = args.out_dir / "last_checkpoint"
     best_score = -1.0
+    start_step = args.start_step
     history = []
 
+    if args.resume_from:
+        state_path = Path(args.resume_from) / "trainer_state.pt"
+        if state_path.exists():
+            # weights_only=False: this file holds optimizer/RNG state (plain
+            # Python objects), not just tensors, and it's always our own
+            # last_checkpoint/ output -- never an untrusted download.
+            # map_location="cpu": torch.get_rng_state() is always a CPU
+            # ByteTensor, so loading straight onto cuda breaks
+            # torch.set_rng_state; optimizer tensors are moved to `device`
+            # explicitly below instead.
+            state = torch.load(state_path, map_location="cpu", weights_only=False)
+            optimizer.load_state_dict(state["optimizer"])
+            for opt_state in optimizer.state.values():
+                for k, v in opt_state.items():
+                    if isinstance(v, torch.Tensor):
+                        opt_state[k] = v.to(device)
+            scheduler.load_state_dict(state["scheduler"])
+            start_step = state["step"]
+            best_score = state["best_score"]
+            random.setstate(state["rng_python"])
+            np.random.set_state(state["rng_numpy"])
+            torch.set_rng_state(state["rng_torch"])
+            if device == "cuda" and state.get("rng_cuda") is not None:
+                torch.cuda.set_rng_state_all(state["rng_cuda"])
+            print(f"resumed full trainer state from {state_path} at step {start_step}")
+        else:
+            print(f"resumed weights only from {args.resume_from} (no trainer_state.pt) -- "
+                  f"fresh optimizer/scheduler, step count starts at {start_step}")
+
     t0 = time.time()
-    for step in range(cfg["max_steps"]):
+    for step in range(start_step, cfg["max_steps"]):
         batch = train_data.sample_batch(rng, cfg["n_problems_per_batch"])
         anchors = [a for a, _ in batch]
         positives = [p for _, p in batch]
@@ -255,6 +308,27 @@ def main() -> None:
                 encoder.model.save_pretrained(best_ckpt_dir)
                 encoder.tok.save_pretrained(best_ckpt_dir)
                 print(f"  new best mean L4-L6 AUROC: {best_score:.4f} -- saved checkpoint")
+
+            # Full trainer state (optimizer/scheduler/step/rng), overwritten every
+            # eval, so a stopped run can be resumed exactly via --resume-from --
+            # unlike best_checkpoint above, this always reflects the *latest*
+            # step, not the best-scoring one.
+            last_ckpt_dir.mkdir(parents=True, exist_ok=True)
+            encoder.model.save_pretrained(last_ckpt_dir)
+            encoder.tok.save_pretrained(last_ckpt_dir)
+            torch.save(
+                {
+                    "optimizer": optimizer.state_dict(),
+                    "scheduler": scheduler.state_dict(),
+                    "step": step + 1,
+                    "best_score": best_score,
+                    "rng_python": random.getstate(),
+                    "rng_numpy": np.random.get_state(),
+                    "rng_torch": torch.get_rng_state(),
+                    "rng_cuda": torch.cuda.get_rng_state_all() if device == "cuda" else None,
+                },
+                last_ckpt_dir / "trainer_state.pt",
+            )
 
     print(f"\ndone. best mean L4-L6 dev AUROC: {best_score:.4f}")
     print(f"checkpoint: {best_ckpt_dir}")

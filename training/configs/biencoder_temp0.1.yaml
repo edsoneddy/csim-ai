@@ -1,0 +1,14 @@
+# Fase 3 temperature sweep -- short comparison run (600/1500 steps) against
+# the temperature=0.07 trajectory in biencoder.yaml. Same seed/lr/warmup/
+# batching as the main config; only temperature differs.
+seed: 42
+
+lr: 2.0e-5
+warmup_steps: 100
+max_steps: 600
+n_problems_per_batch: 10
+temperature: 0.1
+max_length: 512
+
+log_every: 20
+eval_every: 150
