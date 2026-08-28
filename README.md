@@ -10,10 +10,12 @@ similarity degrades.
 detection (does B solve the same problem as A?). Two independent correct
 solutions to the same problem are a negative, not a positive.
 
-Status: **Fase 5 in progress** -- Decisions 1 and 2 are both settled (the
-fine-tuned bi-encoder beats zero-shot; the bi-encoder+TED fusion beats
-Dolos) and the inference package (`src/csim_ai`) now has a working ONNX
-export + `Scorer`/CLI. Fase 6 (report) is next.
+Status: **all six planned phases done.** Decisions 1 and 2 are both
+settled (the fine-tuned bi-encoder beats zero-shot; the bi-encoder+TED
+fusion beats Dolos), the inference package (`src/csim_ai`) has a working
+ONNX export + `Scorer`/CLI, and [REPORT.md](REPORT.md) has the
+end-to-end narrative and results. This README stays the operational
+log/runbook per phase; REPORT.md is the standalone writeup.
 
 ## Layout
 
@@ -941,4 +943,6 @@ bi-encoder-only and full-fusion scoring; skips gracefully when the
 gitignored local artifacts (`onnx_model/`, `fusion_model_v1.joblib`)
 aren't present, since a fresh clone doesn't have them.
 
-Next: Fase 6 (report).
+Fase 6 (report): see [REPORT.md](REPORT.md) for the full project
+narrative -- problem statement, methodology, both decisions, results,
+and limitations, pulled together from the phase-by-phase log above.
