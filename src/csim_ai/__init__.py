@@ -19,6 +19,13 @@ model and gives the full hybrid score with no further flags/arguments,
 same as the CLI's `report`/`group` without `--use-fusion`. Pass
 `use_fusion=True` to force-download the fusion model on the spot instead
 of requiring `setup` first.
+
+`device="cpu"` (default) matches the base install exactly -- GPU
+(`device="cuda"` or `"auto"`) is opt-in and needs `onnxruntime-gpu`
+installed in place of plain `onnxruntime` (same import name, can't have
+both) plus its CUDA/cuDNN runtime libraries; see README for the actual
+swap commands. Requesting `"cuda"` without that in place prints a
+warning and falls back to CPU rather than failing silently.
 """
 from __future__ import annotations
 
@@ -26,7 +33,7 @@ from pathlib import Path
 
 from ._onnx_encoder import OnnxEncoder
 
-__version__ = "0.0.1"
+__version__ = "0.0.4"
 
 __all__ = ["Scorer", "__version__"]
 
@@ -37,12 +44,13 @@ class Scorer:
         model_path: str | Path | None = None,
         fusion_model_path: str | Path | None = None,
         use_fusion: bool = False,
+        device: str = "cpu",
     ):
         if model_path is None:
             from ._hub import download_model
 
             model_path = download_model()
-        self._encoder = OnnxEncoder(model_path)
+        self._encoder = OnnxEncoder(model_path, device=device)
 
         if fusion_model_path is None:
             if use_fusion:

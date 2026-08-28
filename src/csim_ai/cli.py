@@ -61,7 +61,7 @@ def _score_all_pairs(files: list[Path], scorer: Scorer) -> dict[tuple[Path, Path
 
 
 def cmd_report(args: argparse.Namespace) -> None:
-    scorer = Scorer(args.model_path, fusion_model_path=args.fusion_model, use_fusion=args.use_fusion)
+    scorer = Scorer(args.model_path, fusion_model_path=args.fusion_model, use_fusion=args.use_fusion, device=args.device)
     files = _iter_py_files(args.path)
     results = _score_all_pairs(files, scorer)
     for (a, b), r in results.items():
@@ -75,7 +75,7 @@ def cmd_report(args: argparse.Namespace) -> None:
 
 
 def cmd_group(args: argparse.Namespace) -> None:
-    scorer = Scorer(args.model_path, fusion_model_path=args.fusion_model, use_fusion=args.use_fusion)
+    scorer = Scorer(args.model_path, fusion_model_path=args.fusion_model, use_fusion=args.use_fusion, device=args.device)
     files = _iter_py_files(args.path)
     results = _score_all_pairs(files, scorer)
 
@@ -138,6 +138,12 @@ def cmd_info(args: argparse.Namespace) -> None:
             print(f"  {label:<24} not installed")
 
     check("onnxruntime (base)", "onnxruntime")
+    try:
+        import onnxruntime as ort
+
+        print(f"    execution providers: {ort.get_available_providers()}")
+    except ImportError:
+        pass
     check("tokenizers (base)", "tokenizers")
     check("huggingface_hub (base)", "huggingface_hub")
     check("csim (ast extra)", "csim")
@@ -186,6 +192,11 @@ def main() -> None:
         p.add_argument("--model-path", default=None, help="Directory with model.onnx/tokenizer.json. Default: download from Hugging Face Hub.")
         p.add_argument("--fusion-model", default=None, help="Path to a fusion_model.joblib (requires the [ast,scorer] extras).")
         p.add_argument("--use-fusion", action="store_true", help="Use the fusion score, downloading the fusion model from Hugging Face Hub if --fusion-model isn't given.")
+        p.add_argument(
+            "--device", choices=["cpu", "cuda", "auto"], default="cpu",
+            help="Bi-encoder execution device (default: cpu). 'cuda'/'auto' need onnxruntime-gpu installed "
+            "in place of plain onnxruntime, plus its CUDA/cuDNN runtime libraries -- see README.",
+        )
 
     report_p = sub.add_parser("report", help="Pairwise similarity report over a directory.")
     add_path_args(report_p)

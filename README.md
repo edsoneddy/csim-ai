@@ -102,6 +102,37 @@ aren't bundled in the package.
 | `--opset` | `17` | ONNX opset version for `--export-from`. |
 | `--no-verify` | off | Skip the PyTorch-vs-ONNX parity check after `--export-from`. |
 
+### GPU (optional)
+
+`report`/`group` accept `--device {cpu,cuda,auto}` (default `cpu` --
+nothing changes unless you ask). The bi-encoder is the dominant runtime
+cost by far -- on one real 29-file/406-pair directory (RTX 3060 Ti):
+
+| Device | Time | Result |
+|---|---|---|
+| `cpu` (default) | 7.7s | 5 groups |
+| `cuda` | 4.2s | same 5 groups |
+
+GPU isn't automatic because the base install's `onnxruntime` is
+CPU-only, and `onnxruntime-gpu` occupies the exact same import name --
+they can't both be installed. To use it:
+
+```bash
+pip uninstall onnxruntime
+pip install onnxruntime-gpu
+```
+
+...plus the CUDA/cuDNN runtime libraries (a system CUDA toolkit, or the
+`nvidia-cublas-cuXX`/`nvidia-cudnn-cuXX` pip packages -- already present
+if `torch`'s CUDA build happens to be installed in the same
+environment). Requesting `--device cuda` without a working
+CUDAExecutionProvider doesn't fail -- onnxruntime silently falls back to
+CPU -- so csim-ai checks and prints a warning to stderr when that
+happens, instead of leaving it silent. `--device auto` requests CUDA the
+same way but stays quiet if it isn't available (falls back to CPU
+without complaint). `csim-ai info` shows which execution providers
+`onnxruntime` actually has available.
+
 For **every** `report`/`group` result, `"similarity index"` is the
 fusion score when available, else `biencoder_cosine`. `csim_ted`/
 `fusion` come back as `None` (and are dropped from the report line) when
@@ -124,7 +155,7 @@ scorer.score(code_a, code_b)
 # {"biencoder_cosine": 0.987, "csim_ted": 0.83, "fusion": 0.978}
 ```
 
-`Scorer(model_path=None, fusion_model_path=None, use_fusion=False)`:
+`Scorer(model_path=None, fusion_model_path=None, use_fusion=False, device="cpu")`:
 
 - `model_path`: directory with `model.onnx`/`tokenizer.json`. `None`
   (default) downloads from Hugging Face Hub, cached after first call.
@@ -134,6 +165,9 @@ scorer.score(code_a, code_b)
 - `use_fusion`: if `True` and no `fusion_model_path` is given,
   force-downloads the fusion model from HF Hub instead of just checking
   the cache.
+- `device`: `"cpu"` (default, matches the base install exactly),
+  `"cuda"`, or `"auto"` -- see GPU section above. `"cuda"`/`"auto"` need
+  `onnxruntime-gpu` in place of plain `onnxruntime`.
 
 `scorer.score(code_a: str, code_b: str) -> dict` returns
 `{"biencoder_cosine": float, "csim_ted": float | None, "fusion": float | None}`

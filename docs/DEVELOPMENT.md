@@ -1000,6 +1000,37 @@ seconds**, identical grouping output both before and after (same 5
 groups, same file membership) -- confirmed as a real speedup, not a
 behavior change.
 
+**0.0.3 -> 0.0.4: optional GPU support for the bi-encoder.** CPU-only
+inference is the dominant runtime cost by far (the fix above only
+addressed *redundant* CPU work, not switching hardware). Added
+`--device {cpu,cuda,auto}` (CLI) / `device=` (`Scorer`), defaulting to
+`cpu` -- no behavior change unless requested. GPU isn't automatic
+because the base install's `onnxruntime` and `onnxruntime-gpu` occupy
+the same import namespace and can't both be installed; using CUDA means
+swapping the package (`pip uninstall onnxruntime && pip install
+onnxruntime-gpu`) plus having the CUDA/cuDNN runtime libraries actually
+available. Requesting `device="cuda"` without that in place doesn't
+raise -- onnxruntime silently falls back to CPU -- so `OnnxEncoder`
+checks `session.get_providers()` after creation and warns to stderr
+when the requested provider didn't take, rather than leaving that
+silent; `"auto"` requests the same thing but stays quiet on fallback.
+
+Measured on the same 29-file/406-pair directory (RTX 3060 Ti): fusion
+score, CPU 7.7s vs. CUDA 4.2s -- **~1.8x**, with identical grouping
+output confirmed both ways. This is down from an initially-measured
+~2.85x that turned out to be a self-inflicted testing bug, worth noting
+as a methodology reminder: the first GPU-vs-CPU comparison used a
+throwaway venv that only had `onnxruntime-gpu` installed, not
+`csim`/`scikit-learn` -- so it was silently comparing bi-encoder-cosine
+alone (GPU run) against the full fusion score (CPU run, in the dev
+venv), which also produced a handful of pairs that crossed the 0.75
+grouping threshold differently. That looked like a GPU/CPU
+floating-point non-determinism finding at first, until installing
+`csim`/`scikit-learn` in the GPU venv too (an apples-to-apples fusion
+score on both sides) reproduced the CPU run's groups exactly -- the
+"discrepancy" was never a real numerical difference, just two different
+scoring pipelines being compared as if they were the same one.
+
 ## Fase 6: report
 
 See [REPORT.md](REPORT.md) for the full project narrative -- problem
