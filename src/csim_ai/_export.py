@@ -7,7 +7,7 @@ repo's training/ tree needed).
 Requires the `export` extra (`torch`, `transformers`, `onnx`) -- not a
 base-install dependency, imported lazily here.
 
-See README, Fase 5, for why: legacy TorchScript exporter (not the
+See docs/DEVELOPMENT.md, Fase 5, for why: legacy TorchScript exporter (not the
 dynamo-based default in torch >=2.9, which needs `onnxscript`), fp32
 only (int8 dynamic quantization measurably breaks embedding direction;
 fp16 is ~7x slower than fp32 on CPU).

@@ -103,7 +103,8 @@ L5 that duplicated evaluation of a shadowed variable -- each caught by
 testing against thousands of real submissions rather than by inspection,
 and each fixed with a narrower, more explicit precondition rather than a
 broader but riskier general-purpose transform. Full detail, including
-the exact bug mechanics, is in the README's Fase 1 sections; the point
+the exact bug mechanics, is in [DEVELOPMENT.md](DEVELOPMENT.md)'s Fase 1
+sections; the point
 worth carrying into this report is methodological: every mutation level
 that claims correctness backs that claim with a *mechanical* check
 (AST diff, independence analysis, round-trip verification), not

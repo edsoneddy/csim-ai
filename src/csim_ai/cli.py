@@ -172,7 +172,7 @@ def main() -> None:
     info_p.set_defaults(func=cmd_info)
 
     setup_p = sub.add_parser("setup", help="Download the pre-trained weights from Hugging Face Hub (default), or export a local checkpoint to ONNX instead.")
-    setup_p.add_argument("--export-from", default=None, help="Local torch checkpoint directory to export to ONNX instead of downloading (requires the [export] extra). No network access -- see README, Fase 5.")
+    setup_p.add_argument("--export-from", default=None, help="Local torch checkpoint directory to export to ONNX instead of downloading (requires the [export] extra). No network access -- see docs/DEVELOPMENT.md, Fase 5.")
     setup_p.add_argument("--out", default="onnx_model", help="Output directory for --export-from (default: ./onnx_model).")
     setup_p.add_argument("--opset", type=int, default=17)
     setup_p.add_argument("--no-verify", action="store_true", help="Skip the PyTorch-vs-ONNX parity check after --export-from.")
