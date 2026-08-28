@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "csim-ai"
-version = "0.0.2"
+version = "0.0.3"
 description = "Neural-augmented Python code plagiarism detection for programming judges."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Edsone Eddy", email = "crew0eddy@gmail.com" }]
+authors = [{ name = "Edson Eddy", email = "crew0eddy@gmail.com" }]
 keywords = ["plagiarism detection", "code similarity", "bi-encoder", "onnx", "programming judges"]
 classifiers = [
     "Programming Language :: Python :: 3",

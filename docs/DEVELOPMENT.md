@@ -938,6 +938,68 @@ have them.
 CLI/API usage details (`csim-ai setup/report/group/info`, the `Scorer`
 class) live in the main [README.md](../README.md), not duplicated here.
 
+### PyPI publishing: two real bugs found after 0.0.1 shipped
+
+Both found by actually testing the published package fresh (a clean
+venv, `pip install csim-ai[...]`, real usage) rather than trusting that
+"it worked in the dev venv" -- neither showed up until someone tried the
+real thing.
+
+**0.0.1 -> 0.0.2: `pip install csim-ai[ast,scorer]` was uninstallable
+from a clean environment.** `numpy>=2.0` (this package, set without a
+real reason -- just matched what the dev venv already had) is
+mathematically incompatible with `csim>=3.3.0`'s exact `numpy==1.26.4`
+pin; pip's resolver correctly refused with `ResolutionImpossible`. It
+had "worked" in Fase 4's dev venv only because numpy 2.5.2 was already
+installed there before csim was added -- pip never had to resolve both
+constraints together in one shot the way a fresh multi-extra install
+does. Checked what actually needs what: nothing in the dependency tree
+requires numpy>=2.0 (`onnxruntime>=1.21.6`, `transformers>=1.17`,
+`scikit-learn`/`sentence-transformers>=1.24`, `torch` no floor at all)
+-- dropped the floor to `numpy>=1.24`, letting numpy==1.26.4 satisfy
+everyone including csim's exact pin.
+
+That surfaced a second, chained bug: with numpy==1.26.4 actually
+resolved, loading `fusion_model.joblib` crashed --
+`ValueError: <class 'numpy.random._pcg64.PCG64'> is not a known
+BitGenerator module`. The model had been pickled under numpy 2.5.2
+during Fase 4 training; joblib/pickle's numpy RandomState/BitGenerator
+format isn't backward-compatible from 2.x back to 1.x. Fixed by
+retraining/repickling the fusion model specifically under numpy 1.26.4
+(same data, same `HistGradientBoostingClassifier(random_state=42)`,
+identical accuracy: 0.9975 train, 0.9892 mean L4-L6 test AUROC --
+verified no regression) and confirming it loads under *both* 1.26.4 and
+2.5.2 afterward (numpy's pickle compat only goes forward, old-to-new,
+not the reverse) -- **the fusion model must always be pickled under the
+oldest supported numpy, never whatever's in the dev venv at the time.**
+Re-uploaded to HF Hub (`edson-eddy/csim-ai`); no PyPI-side model file to
+fix since weights aren't bundled, just the dependency constraint.
+
+**0.0.2 -> 0.0.3: `csim-ai report`/`group` were unusably slow on real
+directories.** A real user pointed `csim-ai group` at a 29-submission
+problem directory (406 pairs) and it didn't finish in 90 seconds. Root
+cause: the CLI called `Scorer.score(code_a, code_b)` once per pair,
+and each call independently re-encoded both files through the ONNX
+bi-encoder *and* re-parsed both through csim's TED preprocessor --
+`Scorer.score()` is a clean pairwise API, but looping it over
+all-pairs-in-a-directory means every file gets re-encoded/re-parsed
+once for each of the other N-1 files it's compared against, instead of
+once total. Fixed by having the CLI encode every file in one batched
+`OnnxEncoder.encode()` call and preprocess each file's TED tree once
+(new `_ted.preprocess`/`_ted.similarity` split, replacing the
+single-shot `ted_score` for this use case), then computing all pairwise
+scores from those cached per-file results -- the same
+encode-once-then-pairwise-lookup pattern already used in
+`training/eval/final_test_eval.py` and
+`training/scorer/build_features.py`, just not previously applied to the
+CLI. Also added chunked batching (`batch_size=32`) inside
+`OnnxEncoder.encode()` itself so a big batch of wildly-different-length
+files doesn't get padded to the single longest one all at once. Same
+29-file/406-pair directory: **90+ seconds (killed, unfinished) -> 7.7-7.8
+seconds**, identical grouping output both before and after (same 5
+groups, same file membership) -- confirmed as a real speedup, not a
+behavior change.
+
 ## Fase 6: report
 
 See [REPORT.md](REPORT.md) for the full project narrative -- problem
